@@ -3,6 +3,7 @@ import { Context, Hono } from 'hono';
 import { env } from 'hono/adapter';
 import { createSpotifySdk, searchTrack, findUserPlaylist, addTrackToPlaylist, refreshAccessToken } from '../lib/spotify';
 import { QueryCleaning } from '../lib/ai'; // New import for AI functionality
+import { calculateSimilarity } from '../lib/utils'; // Import similarity utility
 import type { SpotifyApi } from '@spotify/web-api-ts-sdk';
 import { SongInfo } from '../dto/SongInfo';
 import { searchTrackBySongInfo } from '../lib/spotify';
@@ -133,10 +134,29 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
         return c.text('Error: Song query (query) is missing.', 400); // Updated message
     }
     if (!playlistName) {
+        const { PLAYLIST_NAME } = env(c);
+        if (PLAYLIST_NAME) {
+            playlistName = PLAYLIST_NAME;
+        }
+    }
+
+    if (!playlistName) {
         return c.text('Error: Playlist name (playlist) is missing.', 400);
     }
 
+
     let cleanedSongInfo: SongInfo | null = null;
+
+    if (!playlistName) {
+        const { PLAYLIST_NAME } = env(c);
+        if (PLAYLIST_NAME) {
+            playlistName = PLAYLIST_NAME;
+        }
+    }
+
+    if (!playlistName) {
+        return c.text('Error: Playlist name (playlist) is missing.', 400);
+    }
 
     // Execute AI query cleaning if requested and the API key is available
     if (useAi) {
@@ -163,9 +183,46 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
 
         console.log(`Found song: ${track.name} by ${track.artists.map(a => a.name).join(', ')}`);
 
-        const playlist = await findUserPlaylist(spotifySdk, playlistName);
+        // Validation: Check similarity
+        const trackString = `${track.name} ${track.artists.map(a => a.name).join(' ')}`;
+        const queryArtistString = cleanedSongInfo.artist ? cleanedSongInfo.artist.join(' ') : '';
+        const queryString = `${cleanedSongInfo.title} ${queryArtistString}`;
+
+        const similarity = calculateSimilarity(trackString, queryString);
+        console.log(`Similarity score: ${similarity} (Query: "${queryString}", Result: "${trackString}")`);
+
+        let targetPlaylistName = playlistName;
+        const SIMILARITY_THRESHOLD = 0.6;
+
+        if (similarity < SIMILARITY_THRESHOLD) {
+            console.warn(`Similarity ${similarity} is below threshold ${SIMILARITY_THRESHOLD}. Attempting to use uncertain playlist.`);
+            const bindings = env(c) as CloudflareBindings;
+            const uncertainPlaylist = bindings.UNCERTAIN_PLAYLIST_NAME;
+            if (uncertainPlaylist) {
+                targetPlaylistName = uncertainPlaylist;
+                console.log(`Redirecting to uncertain playlist: ${targetPlaylistName}`);
+            } else {
+                console.warn('UNCERTAIN_PLAYLIST_NAME not defined. Proceeding with original playlist.');
+            }
+        }
+
+        const playlist = await findUserPlaylist(spotifySdk, targetPlaylistName);
         if (!playlist) {
-            return c.text(`Error: Playlist "${playlistName}" not found or not owned by you.`, 404);
+            // If uncertain playlist is missing, maybe fallback to original or error? 
+            // For now, if we tried uncertain and failed, we should probably fail or fallback. 
+            // Let's fallback to original if target was uncertain and not found, provided original is different.
+            if (targetPlaylistName !== playlistName) {
+                console.warn(`Uncertain playlist "${targetPlaylistName}" not found. Falling back to "${playlistName}".`);
+                const fallbackPlaylist = await findUserPlaylist(spotifySdk, playlistName);
+                if (fallbackPlaylist) {
+                    // recursive-ish but simple
+                    const wasAdded = await addTrackToPlaylist(spotifySdk, fallbackPlaylist.id, track.uri);
+                    if (wasAdded) {
+                        return c.text(`Added "${track.name}" to "${fallbackPlaylist.name}" (Similarity low, uncertain playlist not found).`);
+                    }
+                }
+            }
+            return c.text(`Error: Playlist "${targetPlaylistName}" not found or not owned by you.`, 404);
         }
         console.log(`Found playlist: ${playlist.name} (ID: ${playlist.id})`);
 

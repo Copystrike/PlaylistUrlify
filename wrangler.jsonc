@@ -11,4 +11,21 @@
       "migrations_dir": "migrations",
     }
   ],
+  "vars": {
+    "PLAYLIST_NAME": "[DEV] My Shazam Tracks",
+    "UNCERTAIN_PLAYLIST_NAME": "[DEV] Uncertain Matches"
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  }
 }
