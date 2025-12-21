@@ -32,6 +32,12 @@ dashboard.get('/', (c) => {
         <form action="/api/generate" method="post" onsubmit="return confirm('Are you sure you want to regenerate your API key? Your old key will stop working immediately.');">
           <button type="submit" className="api-button">Regenerate API Key</button>
         </form>
+
+        <h2 style={{ marginTop: '20px' }}>Spotify Access Token</h2>
+        <p>For use with restore scripts or external debugging.</p>
+        <p>
+          <strong className="api-key breakable">{user.access_token}</strong>
+        </p>
       </div>
 
       <div className="ios-shortcut-container">

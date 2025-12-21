@@ -7,7 +7,8 @@
     "preview": "$npm_execpath run build && vite preview",
     "deploy": "$npm_execpath run build && wrangler deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "test": "vitest"
+    "test": "vitest",
+    "restore": "dotenvx run -- bun restore_songs.ts"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.2.3",
+    "@dotenvx/dotenvx": "^1.51.2",
     "@types/js-levenshtein": "^1.1.3",
     "@types/node": "^24.0.3",
     "dotenv": "^17.2.3",

@@ -1,12 +1,8 @@
 
-import { config } from 'dotenv';
 import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 import { QueryCleaning } from './src/lib/ai';
 import { calculateSimilarity } from './src/lib/utils';
 import { searchTrackBySongInfo, findUserPlaylist, addTrackToPlaylist } from './src/lib/spotify';
-
-// Load env vars
-config();
 
 const SONGS_TO_RESTORE = [
     "30 Nov 2025 at 09:47 Flashing Lights (feat. Dwele) by artists: Kanye West",
@@ -44,8 +40,6 @@ const SONGS_TO_RESTORE = [
 async function main() {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
-    // We need an access token. The script cannot perform OAuth login flow easily without interaction.
-    // We assume the user provides a token in .env or we fail.
     const SPOTIFY_ACCESS_TOKEN = process.env.SPOTIFY_ACCESS_TOKEN;
     const PLAYLIST_NAME = process.env.PLAYLIST_NAME;
     const UNCERTAIN_PLAYLIST_NAME = process.env.UNCERTAIN_PLAYLIST_NAME || "[DEV] Uncertain Matches";
@@ -56,7 +50,6 @@ async function main() {
     }
     if (!SPOTIFY_CLIENT_ID || !SPOTIFY_ACCESS_TOKEN) {
         console.error("Missing SPOTIFY_CLIENT_ID or SPOTIFY_ACCESS_TOKEN in .env");
-        console.error("Please add a valid SPOTIFY_ACCESS_TOKEN to your .env file.");
         process.exit(1);
     }
     if (!PLAYLIST_NAME) {
@@ -65,20 +58,24 @@ async function main() {
     }
 
     console.log(`Starting restore process for ${SONGS_TO_RESTORE.length} items...`);
-    console.log(`Target Playlist: ${PLAYLIST_NAME}`);
-    console.log(`Uncertain Playlist: ${UNCERTAIN_PLAYLIST_NAME}`);
+    console.log(`Loaded Configuration:`);
+    console.log(`- TARGET PLAYLIST: ${PLAYLIST_NAME}`);
+    console.log(`- CLIENT ID: ${SPOTIFY_CLIENT_ID?.substring(0, 5)}...`);
+    console.log(`- ACCESS TOKEN: ${SPOTIFY_ACCESS_TOKEN?.substring(0, 5)}... (Length: ${SPOTIFY_ACCESS_TOKEN?.length})`);
+    console.log(`- UNCERTAIN PLAYLIST: ${UNCERTAIN_PLAYLIST_NAME}`);
 
     const sdk = SpotifyApi.withAccessToken(SPOTIFY_CLIENT_ID, {
         access_token: SPOTIFY_ACCESS_TOKEN,
         token_type: "Bearer",
         expires_in: 3600,
         refresh_token: "",
-        scope: ""
     });
 
     for (const rawEntry of SONGS_TO_RESTORE) {
-        // Skip empty or malformed placeholder entries
-        if (rawEntry.includes("by artists:  ") || rawEntry.trim() === "by artists:") {
+        // Strict filtering for empty artist entries
+        // e.g. "9 Dec 2025 at 11:50  by artists: "
+        const parts = rawEntry.split("by artists:");
+        if (parts.length < 2 || !parts[1].trim()) {
             console.log(`[SKIP] Empty/Malformed entry: "${rawEntry}"`);
             continue;
         }
@@ -129,7 +126,13 @@ async function main() {
             await addTrackToPlaylist(sdk, playlist.id, track.uri);
             console.log(`   [SUCCESS] Added to "${playlist.name}".`);
 
-        } catch (e) {
+        } catch (e: any) {
+            // Check for 401 or Bad token error
+            if (e?.message?.includes("Bad or expired token") || e?.status === 401) {
+                console.error("\n[CRITICAL ERROR] Spotify Access Token is invalid or expired.");
+                console.error("Please log in again to get a fresh token and update SPOTIFY_ACCESS_TOKEN in .env");
+                process.exit(1);
+            }
             console.error(`   [ERROR] Failed to process entry:`, e);
         }
     }
