@@ -46,9 +46,7 @@ app.route('/', authRoutes);
 app.route('/dashboard', dashboardRoutes);
 
 // Mount the API routes (generate/delete key)
-app.route('/api', apiRoutes);
-
 // Mount the /add route
-app.route('/add', addRoutes); // Mount the new /add route
+app.route('/add', addRoutes);
 
 export default app;
