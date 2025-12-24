@@ -5,6 +5,8 @@ import { env } from 'hono/adapter';
 
 import './../style.css';
 
+const DEFAULT_SIMILARITY_THRESHOLD = 0.6;
+
 
 const dashboard = new Hono();
 
@@ -14,7 +16,7 @@ dashboard.get('/', (c) => {
   const user = c.get('currentUser');
   const message = c.req.query('message');
   const error = c.req.query('error');
-  const similarityThreshold = user.similarity_threshold ?? 0.6;
+  const similarityThreshold = user.similarity_threshold ?? DEFAULT_SIMILARITY_THRESHOLD;
 
   return c.render(
     <div className="dashboard-container">
@@ -141,7 +143,9 @@ dashboard.post('/preferences', async (c) => {
     const uncertainPlaylist = typeof body?.uncertain_playlist === 'string' ? body.uncertain_playlist.trim() : '';
     const similarityRaw = typeof body?.similarity_threshold === 'string' ? body.similarity_threshold : '';
     const parsedThreshold = parseFloat(similarityRaw);
-    const similarityThreshold = Number.isFinite(parsedThreshold) ? Math.min(Math.max(parsedThreshold, 0), 1) : 0.6;
+    const similarityThreshold = Number.isFinite(parsedThreshold)
+      ? Math.min(Math.max(parsedThreshold, 0), 1)
+      : DEFAULT_SIMILARITY_THRESHOLD;
 
     await DB.prepare('UPDATE users SET default_playlist = ?, uncertain_playlist = ?, similarity_threshold = ? WHERE id = ?')
       .bind(defaultPlaylist || null, uncertainPlaylist || null, similarityThreshold, user.id)

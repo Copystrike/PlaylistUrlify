@@ -154,6 +154,9 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
     }
     if (!playlistName) {
         playlistName = userPreferences.defaultPlaylist ?? envDefaults.PLAYLIST_NAME;
+        if (!playlistName && !userPreferences.defaultPlaylist && !envDefaults.PLAYLIST_NAME) {
+            return c.text('Error: Playlist name (playlist) is missing.', 400);
+        }
     }
 
     let cleanedSongInfo: SongInfo | null = null;
