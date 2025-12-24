@@ -160,13 +160,13 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
 
     // Execute AI query cleaning if requested and the API key is available
     if (useAi) {
-        const { GEMINI_API_KEY } = env(c); // This should be your Google Gemini API Key
+        const { GROQ_API_KEY } = env(c);
 
-        if (!GEMINI_API_KEY) {
+        if (!GROQ_API_KEY) {
             console.warn('AI processing requested but API_KEY for the LLM is not configured. Skipping AI refinement.');
         } else {
             console.log(`AI processing enabled for query: "${songQuery}"`);
-            cleanedSongInfo = await QueryCleaning(songQuery, GEMINI_API_KEY as string);
+            cleanedSongInfo = await QueryCleaning(songQuery, GROQ_API_KEY as string);
             console.log(`AI cleaned song info: ${JSON.stringify(cleanedSongInfo)}`);
         }
     }

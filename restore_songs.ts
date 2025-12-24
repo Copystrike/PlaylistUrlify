@@ -38,14 +38,14 @@ const SONGS_TO_RESTORE = [
 ];
 
 async function main() {
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
     const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
     const SPOTIFY_ACCESS_TOKEN = process.env.SPOTIFY_ACCESS_TOKEN;
     const PLAYLIST_NAME = process.env.PLAYLIST_NAME;
     const UNCERTAIN_PLAYLIST_NAME = process.env.UNCERTAIN_PLAYLIST_NAME || "[DEV] Uncertain Matches";
 
-    if (!GEMINI_API_KEY) {
-        console.error("Missing GEMINI_API_KEY in .env");
+    if (!GROQ_API_KEY) {
+        console.error("Missing GROQ_API_KEY in .env");
         process.exit(1);
     }
     if (!SPOTIFY_CLIENT_ID || !SPOTIFY_ACCESS_TOKEN) {
@@ -83,7 +83,7 @@ async function main() {
         try {
             console.log(`\nProcessing: "${rawEntry}"`);
 
-            const cleanedSongInfo = await QueryCleaning(rawEntry, GEMINI_API_KEY);
+            const cleanedSongInfo = await QueryCleaning(rawEntry, GROQ_API_KEY);
             console.log(`   Cleaned: "${cleanedSongInfo.title}" by ${cleanedSongInfo.artist.join(", ")}`);
 
             const track = await searchTrackBySongInfo(sdk, cleanedSongInfo);
