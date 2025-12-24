@@ -5,13 +5,13 @@ import { config } from 'dotenv';
 import { SongInfo } from '../dto/SongInfo';
 
 // Load environment variables from .env
-config();
+    config();
 
 describe('AI Query Cleaning', () => {
     it('should clean a complex song query using the real API', async () => {
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey) {
-            console.warn('Skipping AI test because GEMINI_API_KEY is not set');
+            console.warn('Skipping AI test because GROQ_API_KEY is not set');
             return;
         }
 

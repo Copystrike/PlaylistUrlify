@@ -1,18 +1,17 @@
 // src/lib/ai.ts
 import { ExtractSongDetailsPrompt } from './queryRefinePrompt';
-import { GoogleGenAI, Type } from '@google/genai';
 import { SongInfo } from '../dto/SongInfo';
 
 
 
 /**
  * @todo AI
- * Cleans and refines a song query using a Large Language Model (Gemini).
- * This function takes a raw song title, sends it to the Gemini API with a specific prompt,
+ * Cleans and refines a song query using a Large Language Model (Groq).
+ * This function takes a raw song title, sends it to the Groq API with a specific prompt,
  * and parses the structured JSON output to create a refined search query for Spotify.
  *
  * @param songQuery The raw song query string (e.g., "Artist - Title (feat. Other Artist)").
- * @param apiKey The API key for the Google Generative AI service.
+ * @param apiKey The API key for the Groq service.
  * @returns A refined query string in the format "title artist1 artist2...".
  * If the AI processing fails, it logs a warning and returns the original query.
  */
@@ -20,35 +19,7 @@ export async function QueryCleaning(songQuery: string, apiKey: string): Promise<
 
     console.log(`QueryCleaning called with songQuery: "${songQuery}"`);
 
-    const prompt = ExtractSongDetailsPrompt(songQuery);
-
-    console.log(`Generated prompt for AI: ${JSON.stringify(prompt)}`);
-
-    const ai = new GoogleGenAI({
-        apiKey,
-    });
-
-    const config = {
-        responseMimeType: 'application/json',
-        responseSchema: {
-            type: Type.OBJECT,
-            required: ["title", "artist"],
-            properties: {
-                title: {
-                    type: Type.STRING,
-                    description: "Cleaned song title with artist names removed, remix/version info preserved",
-                },
-                artist: {
-                    type: Type.ARRAY,
-                    description: "Ordered list of all artists as they appear in the original title",
-                    items: {
-                        type: Type.STRING,
-                    },
-                },
-            },
-        },
-    };
-    const model = 'gemma-3-27b-it';
+    const messages = ExtractSongDetailsPrompt(songQuery);
 
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -56,13 +27,37 @@ export async function QueryCleaning(songQuery: string, apiKey: string): Promise<
     let parsedResponse = null;
 
     while (attempts < 3) {
-        const response = await ai.models.generateContent({
-            model,
-            config,
-            contents: prompt
-        });
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({
+                    model: 'openai/gpt-oss-120b',
+                    messages,
+                    temperature: 0.1,
+                    max_completion_tokens: 8192,
+                    top_p: 1,
+                    reasoning_effort: 'low',
+                    stream: false,
+                    response_format: { type: 'json_object' },
+                    stop: null,
+                }),
+            });
 
-        parsedResponse = response.text ? JSON.parse(response.text) : null;
+            if (!response.ok) {
+                throw new Error(`Groq API error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            const content = data?.choices?.[0]?.message?.content;
+
+            parsedResponse = content ? JSON.parse(content) : null;
+        } catch (error) {
+            console.warn(`Groq request attempt ${attempts + 1} failed:`, error);
+        }
 
         if (parsedResponse && SongInfo.validate(parsedResponse) && parsedResponse.title) {
             return new SongInfo(parsedResponse.title, parsedResponse.artist);

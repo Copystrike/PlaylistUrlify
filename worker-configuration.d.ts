@@ -9,7 +9,7 @@ declare namespace Cloudflare {
 		UNCERTAIN_PLAYLIST_NAME: "[DEV] Uncertain Matches";
 		SPOTIFY_CLIENT_ID: string;
 		SPOTIFY_CLIENT_SECRET: string;
-		GEMINI_API_KEY: string;
+		GROQ_API_KEY: string;
 		PLAYLIST_NAME: string;
 		DB: D1Database;
 	}
