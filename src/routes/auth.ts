@@ -69,6 +69,9 @@ auth.get('/callback', async (c) => {
             refresh_token: string;
             expires_at: number;
             api_key: string;
+            default_playlist: string | null;
+            uncertain_playlist: string | null;
+            similarity_threshold: number | null;
         }>(); // Cast to the full user type to access api_key
 
         let apiKeyToSave: string; // This variable will hold the API key we want to store/preserve
@@ -89,14 +92,20 @@ auth.get('/callback', async (c) => {
         } else {
             // New user, generate a NEW API key for them and insert the full record.
             apiKeyToSave = generateApiKey(); // Generate API key ONLY for new users
+            const { PLAYLIST_NAME, UNCERTAIN_PLAYLIST_NAME } = env(c);
+            const defaultPlaylist = PLAYLIST_NAME ?? null;
+            const uncertainPlaylist = UNCERTAIN_PLAYLIST_NAME ?? null;
             await DB.prepare(
-                'INSERT INTO users (id, access_token, refresh_token, expires_at, api_key) VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO users (id, access_token, refresh_token, expires_at, api_key, default_playlist, uncertain_playlist, similarity_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
             ).bind(
                 spotifyUserId,
                 tokenData.access_token,
                 tokenData.refresh_token,
                 expiresAt,
-                apiKeyToSave // Use the newly generated key for the new user
+                apiKeyToSave, // Use the newly generated key for the new user
+                defaultPlaylist,
+                uncertainPlaylist,
+                0.6
             ).run();
             console.log(`Inserted new user ${spotifyUserId} into D1 with a new API key.`);
         }

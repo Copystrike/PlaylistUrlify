@@ -29,6 +29,7 @@ This application aims to simplify adding music to Spotify playlists, especially 
 *   **Spotify Authentication:** Users can securely authenticate with their Spotify account using the Authorization Code Flow.
 *   **Personal API Token:** Upon first login, each user is issued a unique, secure API token. This token acts as a lightweight, per-user authentication mechanism for the `/add` endpoint.
 *   **API Token Management:** Users can view their API token on a dashboard, regenerate it (invalidating the old one), or delete their entire account and token.
+*   **Per-user playlist preferences:** Users can choose their default playlist, a low-similarity fallback playlist, and adjust the similarity threshold directly from the dashboard instead of relying on server environment values.
 *   **iPhone Shortcut Integration:** The core functionality enables a simple HTTP GET request from an iPhone Shortcut (or similar automation tool) to add a song to a specified playlist. The API key can be provided either as a query parameter or in the `Authorization` header:
     *   Query parameter:
         ```
@@ -79,7 +80,10 @@ CREATE TABLE users (
   access_token TEXT NOT NULL,
   refresh_token TEXT NOT NULL,
   expires_at INTEGER NOT NULL,   -- UNIX timestamp (when access_token expires)
-  api_key TEXT NOT NULL          -- Secure token used in /add endpoint
+  api_key TEXT NOT NULL,         -- Secure token used in /add endpoint
+  default_playlist TEXT,         -- User-configurable default playlist
+  uncertain_playlist TEXT,       -- User-configurable playlist when similarity is low
+  similarity_threshold REAL DEFAULT 0.6
 );
 ```
 
