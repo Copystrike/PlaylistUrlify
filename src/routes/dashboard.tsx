@@ -151,7 +151,8 @@ dashboard.post('/preferences', async (c) => {
       .bind(defaultPlaylist || null, uncertainPlaylist || null, similarityThreshold, user.id)
       .run();
 
-    if (!result.success) {
+    const changes = (result as any)?.meta?.changes ?? 0;
+    if (!result.success || changes === 0) {
       return c.redirect('/dashboard?error=Failed to update playlist preferences.');
     }
 

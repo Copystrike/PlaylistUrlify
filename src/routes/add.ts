@@ -142,7 +142,11 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
     // Use the correct context key and type assertion
     const authenticatedUser = c.get('currentUser') as CustomContext['Variables']['currentUser'];
     const spotifySdk = c.get('spotifySdk') as SpotifyApi;
-    const envDefaults = env(c);
+    const bindings = env(c) as Partial<CloudflareBindings>;
+    const envDefaults = {
+        PLAYLIST_NAME: bindings.PLAYLIST_NAME ?? null,
+        UNCERTAIN_PLAYLIST_NAME: bindings.UNCERTAIN_PLAYLIST_NAME ?? null
+    };
     const userPreferences = {
         defaultPlaylist: authenticatedUser.default_playlist,
         uncertainPlaylist: authenticatedUser.uncertain_playlist,
