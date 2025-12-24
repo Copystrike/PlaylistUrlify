@@ -4,7 +4,10 @@ import { defineConfig, type PluginOption } from 'vite';
 import ssrPlugin from 'vite-ssr-components/plugin';
 
 const isTest = process.env.VITEST === 'true';
-const plugins: PluginOption[] = [!isTest && cloudflare(), ssrPlugin()].filter(Boolean) as PluginOption[];
+const plugins: PluginOption[] = [
+  ssrPlugin(),
+  ...(isTest ? [] as PluginOption[] : [cloudflare()])
+];
 
 export default defineConfig({
   plugins,

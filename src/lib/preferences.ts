@@ -1,3 +1,9 @@
+/**
+ * Per-user playlist routing preferences.
+ * - defaultPlaylist: target when similarity is above threshold or unspecified.
+ * - uncertainPlaylist: fallback when similarity is below threshold.
+ * - similarityThreshold: range 0–1; null/undefined uses 0.6 default.
+ */
 export type PlaylistPreferences = {
     defaultPlaylist?: string | null;
     uncertainPlaylist?: string | null;
