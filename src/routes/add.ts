@@ -159,6 +159,7 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
         }
     }
 
+    // Holder for the user-provided or AI-cleaned song info
     let cleanedSongInfo: SongInfo | null = null;
 
     // Execute AI query cleaning if requested and the API key is available
