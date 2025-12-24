@@ -14,6 +14,7 @@ dashboard.get('/', (c) => {
   const user = c.get('currentUser');
   const message = c.req.query('message');
   const error = c.req.query('error');
+  const similarityThreshold = user.similarity_threshold ?? 0.6;
 
   return c.render(
     <div className="dashboard-container">
@@ -38,6 +39,44 @@ dashboard.get('/', (c) => {
         <p>
           <strong className="api-key breakable">{user.access_token}</strong>
         </p>
+      </div>
+
+      <div className="api-key-container">
+        <h2>Playlist Preferences</h2>
+        <p>Choose where songs should go when matches are confident versus when they are uncertain.</p>
+        <form action="/dashboard/preferences" method="post">
+          <label htmlFor="default_playlist">Default playlist (used when the song match is confident)</label>
+          <input
+            id="default_playlist"
+            name="default_playlist"
+            type="text"
+            placeholder="My Shazam Tracks"
+            defaultValue={user.default_playlist ?? ''}
+          />
+
+          <label htmlFor="uncertain_playlist">Uncertain playlist (used when similarity is low)</label>
+          <input
+            id="uncertain_playlist"
+            name="uncertain_playlist"
+            type="text"
+            placeholder="Needs Review"
+            defaultValue={user.uncertain_playlist ?? ''}
+          />
+
+          <label htmlFor="similarity_threshold">Similarity threshold (0 to 1)</label>
+          <input
+            id="similarity_threshold"
+            name="similarity_threshold"
+            type="number"
+            min="0"
+            max="1"
+            step="0.01"
+            defaultValue={similarityThreshold}
+          />
+
+          <button type="submit" className="api-button">Save Preferences</button>
+          <p className="api-key-note">When no playlist is passed to the API, your defaults are used instead of server environment variables.</p>
+        </form>
       </div>
 
       <div className="ios-shortcut-container">
@@ -89,6 +128,30 @@ dashboard.get('/', (c) => {
       </div>
     </div>
   );
+});
+
+dashboard.post('/preferences', async (c) => {
+  const user = c.get('currentUser');
+  const { DB } = env(c) as unknown as Cloudflare.Env;
+
+  try {
+    const body = await c.req.parseBody();
+
+    const defaultPlaylist = typeof body?.default_playlist === 'string' ? body.default_playlist.trim() : '';
+    const uncertainPlaylist = typeof body?.uncertain_playlist === 'string' ? body.uncertain_playlist.trim() : '';
+    const similarityRaw = typeof body?.similarity_threshold === 'string' ? body.similarity_threshold : '';
+    const parsedThreshold = parseFloat(similarityRaw);
+    const similarityThreshold = Number.isFinite(parsedThreshold) ? Math.min(Math.max(parsedThreshold, 0), 1) : 0.6;
+
+    await DB.prepare('UPDATE users SET default_playlist = ?, uncertain_playlist = ?, similarity_threshold = ? WHERE id = ?')
+      .bind(defaultPlaylist || null, uncertainPlaylist || null, similarityThreshold, user.id)
+      .run();
+
+    return c.redirect('/dashboard?message=Playlist preferences updated.');
+  } catch (err) {
+    console.error('Error updating playlist preferences:', err);
+    return c.redirect('/dashboard?error=Failed to update playlist preferences.');
+  }
 });
 
 dashboard.post('/logout', async (c) => {

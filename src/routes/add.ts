@@ -7,6 +7,7 @@ import { calculateSimilarity } from '../lib/utils'; // Import similarity utility
 import type { SpotifyApi } from '@spotify/web-api-ts-sdk';
 import { SongInfo } from '../dto/SongInfo';
 import { searchTrackBySongInfo } from '../lib/spotify';
+import { resolvePlaylistTarget } from '../lib/preferences';
 
 // Define the context type for Hono
 type CustomContext = {
@@ -18,6 +19,9 @@ type CustomContext = {
             refresh_token: string;
             expires_at: number;
             api_key: string;
+            default_playlist?: string | null;
+            uncertain_playlist?: string | null;
+            similarity_threshold?: number | null;
         };
         spotifySdk: SpotifyApi;
     };
@@ -42,7 +46,16 @@ export const validateApiToken = async (c: any, next: any) => {
         return c.text('Error: API key (token) is missing in query parameter or Authorization header.', 401);
     }
 
-    const user = await DB.prepare('SELECT * FROM users WHERE api_key = ?').bind(apiToken).first();
+    const user = await DB.prepare('SELECT * FROM users WHERE api_key = ?').bind(apiToken).first<{
+        id: string;
+        access_token: string;
+        refresh_token: string;
+        expires_at: number;
+        api_key: string;
+        default_playlist: string | null;
+        uncertain_playlist: string | null;
+        similarity_threshold: number | null;
+    }>();
 
     if (!user) {
         return c.text('Error: Invalid API key (token).', 403);
@@ -129,34 +142,21 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
     // Use the correct context key and type assertion
     const authenticatedUser = c.get('currentUser') as CustomContext['Variables']['currentUser'];
     const spotifySdk = c.get('spotifySdk') as SpotifyApi;
+    const envDefaults = env(c);
+    const userPreferences = {
+        defaultPlaylist: authenticatedUser.default_playlist,
+        uncertainPlaylist: authenticatedUser.uncertain_playlist,
+        similarityThreshold: authenticatedUser.similarity_threshold
+    };
 
     if (!songQuery) { // Changed from songName to songQuery
         return c.text('Error: Song query (query) is missing.', 400); // Updated message
     }
     if (!playlistName) {
-        const { PLAYLIST_NAME } = env(c);
-        if (PLAYLIST_NAME) {
-            playlistName = PLAYLIST_NAME;
-        }
+        playlistName = userPreferences.defaultPlaylist ?? envDefaults.PLAYLIST_NAME;
     }
-
-    if (!playlistName) {
-        return c.text('Error: Playlist name (playlist) is missing.', 400);
-    }
-
 
     let cleanedSongInfo: SongInfo | null = null;
-
-    if (!playlistName) {
-        const { PLAYLIST_NAME } = env(c);
-        if (PLAYLIST_NAME) {
-            playlistName = PLAYLIST_NAME;
-        }
-    }
-
-    if (!playlistName) {
-        return c.text('Error: Playlist name (playlist) is missing.', 400);
-    }
 
     // Execute AI query cleaning if requested and the API key is available
     if (useAi) {
@@ -189,21 +189,23 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
         const queryString = `${cleanedSongInfo.title} ${queryArtistString}`;
 
         const similarity = calculateSimilarity(trackString, queryString);
-        console.log(`Similarity score: ${similarity} (Query: "${queryString}", Result: "${trackString}")`);
+        const playlistSelection = resolvePlaylistTarget({
+            requestedPlaylist: playlistName,
+            similarity,
+            preferences: userPreferences,
+            envDefault: envDefaults.PLAYLIST_NAME,
+            envUncertain: envDefaults.UNCERTAIN_PLAYLIST_NAME
+        });
 
-        let targetPlaylistName = playlistName;
-        const SIMILARITY_THRESHOLD = 0.6;
+        console.log(`Similarity score: ${similarity} (Query: "${queryString}", Result: "${trackString}"), threshold: ${playlistSelection.similarityThreshold}`);
 
-        if (similarity < SIMILARITY_THRESHOLD) {
-            console.warn(`Similarity ${similarity} is below threshold ${SIMILARITY_THRESHOLD}. Attempting to use uncertain playlist.`);
-            const bindings = env(c) as CloudflareBindings;
-            const uncertainPlaylist = bindings.UNCERTAIN_PLAYLIST_NAME;
-            if (uncertainPlaylist) {
-                targetPlaylistName = uncertainPlaylist;
-                console.log(`Redirecting to uncertain playlist: ${targetPlaylistName}`);
-            } else {
-                console.warn('UNCERTAIN_PLAYLIST_NAME not defined. Proceeding with original playlist.');
-            }
+        if (!playlistSelection.basePlaylist || !playlistSelection.targetPlaylist) {
+            return c.text('Error: Playlist name (playlist) is missing.', 400);
+        }
+
+        let targetPlaylistName = playlistSelection.targetPlaylist;
+        if (targetPlaylistName !== playlistSelection.basePlaylist) {
+            console.warn(`Similarity ${similarity} is below threshold ${playlistSelection.similarityThreshold}. Using uncertain playlist "${targetPlaylistName}".`);
         }
 
         const playlist = await findUserPlaylist(spotifySdk, targetPlaylistName);
@@ -211,9 +213,9 @@ add.on(['GET', 'POST'], '/', validateApiToken, async (c) => {
             // If uncertain playlist is missing, maybe fallback to original or error? 
             // For now, if we tried uncertain and failed, we should probably fail or fallback. 
             // Let's fallback to original if target was uncertain and not found, provided original is different.
-            if (targetPlaylistName !== playlistName) {
-                console.warn(`Uncertain playlist "${targetPlaylistName}" not found. Falling back to "${playlistName}".`);
-                const fallbackPlaylist = await findUserPlaylist(spotifySdk, playlistName);
+            if (targetPlaylistName !== playlistSelection.basePlaylist) {
+                console.warn(`Uncertain playlist "${targetPlaylistName}" not found. Falling back to "${playlistSelection.basePlaylist}".`);
+                const fallbackPlaylist = await findUserPlaylist(spotifySdk, playlistSelection.basePlaylist);
                 if (fallbackPlaylist) {
                     // recursive-ish but simple
                     const wasAdded = await addTrackToPlaylist(spotifySdk, fallbackPlaylist.id, track.uri);
