@@ -73,7 +73,7 @@ dashboard.get('/', (c) => {
             min="0"
             max="1"
             step="0.01"
-            defaultValue={similarityThreshold}
+            defaultValue={similarityThreshold.toString()}
           />
 
           <button type="submit" className="api-button">Save Preferences</button>
