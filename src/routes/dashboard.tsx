@@ -147,9 +147,13 @@ dashboard.post('/preferences', async (c) => {
       ? Math.min(Math.max(parsedThreshold, 0), 1)
       : DEFAULT_SIMILARITY_THRESHOLD;
 
-    await DB.prepare('UPDATE users SET default_playlist = ?, uncertain_playlist = ?, similarity_threshold = ? WHERE id = ?')
+    const result = await DB.prepare('UPDATE users SET default_playlist = ?, uncertain_playlist = ?, similarity_threshold = ? WHERE id = ?')
       .bind(defaultPlaylist || null, uncertainPlaylist || null, similarityThreshold, user.id)
       .run();
+
+    if (!result.success) {
+      return c.redirect('/dashboard?error=Failed to update playlist preferences.');
+    }
 
     return c.redirect('/dashboard?message=Playlist preferences updated.');
   } catch (err) {

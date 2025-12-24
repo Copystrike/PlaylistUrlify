@@ -4,8 +4,6 @@ export type PlaylistPreferences = {
     similarityThreshold?: number | null;
 };
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
 const normalize = (value?: string | null) => {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
@@ -19,11 +17,13 @@ export function resolvePlaylistTarget(options: {
     envDefault?: string | null;
     envUncertain?: string | null;
 }) {
-    const similarityThreshold = clamp(
-        typeof options.preferences.similarityThreshold === 'number'
-            ? options.preferences.similarityThreshold
-            : 0.6,
-        0,
+    const similarityThreshold = Math.min(
+        Math.max(
+            typeof options.preferences.similarityThreshold === 'number'
+                ? options.preferences.similarityThreshold
+                : 0.6,
+            0
+        ),
         1
     );
 
