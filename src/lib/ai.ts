@@ -55,7 +55,7 @@ export async function QueryCleaning(songQuery: string, apiKey: string): Promise<
 
             parsedResponse = content ? JSON.parse(content) : null;
         } catch (error) {
-            console.warn(`Groq request attempt ${attempts + 1} failed:`, error);
+            console.warn(`Groq API request attempt ${attempts + 1} failed with error:`, error);
         }
 
         if (parsedResponse && SongInfo.validate(parsedResponse) && parsedResponse.title) {
