@@ -5,7 +5,7 @@ import { config } from 'dotenv';
 import { SongInfo } from '../dto/SongInfo';
 
 // Load environment variables from .env
-    config();
+config();
 
 describe('AI Query Cleaning', () => {
     it('should clean a complex song query using the real API', async () => {
