@@ -195,7 +195,7 @@ export async function findUserPlaylist(sdk: SpotifyApi, playlistName: string) {
  */
 export async function addTrackToPlaylist(sdk: SpotifyApi, playlistId: string, trackUri: string) {
     try {
-        await sdk.playlists.addItemsToPlaylist(playlistId, [trackUri]);
+        await sdk.makeRequest("POST", `playlists/${playlistId}/items`, { uris: [trackUri] });
         return true;
     } catch (error) {
         console.error(`Error adding track ${trackUri} to playlist ${playlistId}:`, error);
