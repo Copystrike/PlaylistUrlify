@@ -8,13 +8,16 @@ declare module 'hono' {
     interface ContextRenderer { }
     interface ContextVariableMap {
         currentUser: {
-            id: string;
-            access_token: string;
-            refresh_token: string;
-            expires_at: number;
-            api_key: string;
-        };
-    }
+        id: string;
+        access_token: string;
+        refresh_token: string;
+        expires_at: number;
+        api_key: string;
+        default_playlist?: string | null;
+        uncertain_playlist?: string | null;
+        similarity_threshold?: number | null;
+    };
+}
 }
 
 export const requireAuth = createMiddleware<{ Bindings: CloudflareBindings; }>(async (c, next) => {
@@ -40,6 +43,9 @@ export const requireAuth = createMiddleware<{ Bindings: CloudflareBindings; }>(a
         refresh_token: string;
         expires_at: number;
         api_key: string;
+        default_playlist: string | null;
+        uncertain_playlist: string | null;
+        similarity_threshold: number | null;
     }>();
 
     if (!user) {
